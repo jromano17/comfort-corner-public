@@ -17,7 +17,7 @@ To get started with ComfortCorner, follow these steps:
 
 1. **Clone the Repository**: Begin by creating a new empty folder on your computer (e.g., `comfort-corner-app`), open your terminal in that folder, and clone both BE and FE repositories to your local machine:
     ```bash
-    git clone [https://github.com/your-username/comfort-corner.git](https://github.com/your-username/comfort-corner.git)
+    git clone [https://github.com/your-username/comfort-corner-public.git](https://github.com/your-username/comfort-corner-public.git)
     git clone [https://github.com/your-username/comfort-corner-fe.git](https://github.com/your-username/comfort-corner-fe.git)
     ```
 
