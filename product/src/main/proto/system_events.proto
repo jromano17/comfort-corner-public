@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "etf.nwt.system_events";
+
+message EventRequest {
+  string timestamp = 1;
+  string microserviceName = 2;
+  string user = 3;
+  string actionType = 4;
+  string resourceName = 5;
+}
+
+message EventResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+service SystemEventsService {
+  rpc LogSystemEvent (EventRequest) returns (EventResponse);
+}

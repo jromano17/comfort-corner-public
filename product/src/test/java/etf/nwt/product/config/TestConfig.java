@@ -1,0 +1,26 @@
+package etf.nwt.product.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.modelmapper.ModelMapper;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+
+@TestConfiguration
+public class TestConfig {
+
+    @Bean
+    @Primary
+    public ObjectMapper testObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
+    }
+    @Bean
+    @Primary
+    public ModelMapper testModelMapper() {
+        ModelMapper modelMapper = new ModelMapper();
+        return modelMapper;
+    }
+}

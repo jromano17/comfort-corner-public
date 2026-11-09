@@ -1,0 +1,186 @@
+networks:
+  app-network:
+    driver: bridge
+    
+volumes:
+  postgres-data:
+  
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:?set DB_USER in .env}
+      POSTGRES_PASSWORD: ${DB_PASS:?set DB_PASS in .env}
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    networks:
+      - app-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:?copy .env.example to .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?copy .env.example to .env}
+    networks:
+      - app-network
+
+  discovery-server:
+    build: ./discovery-server
+    container_name: discovery-server
+    networks:
+      - app-network
+
+  config-server:
+    build: ./config-server
+    container_name: config-server  
+    environment:
+      - GIT_USERNAME=${GIT_USERNAME:-}
+      - GIT_TOKEN=${GIT_TOKEN:-}
+      - CONFIG_USER=${CONFIG_USER:-admin}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD:?copy .env.example to .env}
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - app-network
+
+  auth-service:
+    restart: on-failure
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_PORT=${DB_PORT}
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT}
+      - CONFIG_HOST=config-server
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - INITIAL_ADMIN_EMAIL=${INITIAL_ADMIN_EMAIL:?set in .env}
+      - INITIAL_ADMIN_USERNAME=${INITIAL_ADMIN_USERNAME:?set in .env}
+      - INITIAL_ADMIN_PASSWORD=${INITIAL_ADMIN_PASSWORD:?set in .env}
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:?set in .env}  
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY:?set in .env}  
+      - JWT_EXPIRATION=${JWT_EXPIRATION:?set in .env}  
+      - CONFIG_USER=${CONFIG_USER:-admin}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD:?copy .env.example to .env}
+    depends_on:
+      - postgres
+      - redis
+      - config-server
+      - discovery-server
+    networks:
+      - app-network
+
+  order:
+    restart: on-failure
+    build: ./order
+    container_name: order
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_PORT=${DB_PORT}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - CONFIG_HOST=config-server
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - CONFIG_USER=${CONFIG_USER:-admin}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD:?copy .env.example to .env}
+    depends_on:
+      - postgres
+      - rabbitmq
+      - config-server
+      - discovery-server
+    networks:
+      - app-network
+
+  product:
+    restart: on-failure
+    build: ./product
+    container_name: product
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_PORT=${DB_PORT}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - CONFIG_HOST=config-server
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - CONFIG_USER=${CONFIG_USER:-admin}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD:?copy .env.example to .env}
+    depends_on:
+      - postgres
+      - rabbitmq
+      - config-server
+      - discovery-server
+    networks:
+      - app-network
+    volumes:
+    - ./user-photos:/app/user-photos
+
+
+  system-events:
+    restart: on-failure
+    build: ./system-events
+    container_name: system-events
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_PORT=${DB_PORT}
+      - CONFIG_HOST=config-server
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - CONFIG_USER=${CONFIG_USER:-admin}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD:?copy .env.example to .env}
+    depends_on:
+      - postgres
+      - discovery-server
+      - config-server
+    networks:
+      - app-network
+
+  api-gateway:
+    restart: on-failure
+    build: ./api-gateway
+    container_name: api-gateway
+    environment:
+      - CONFIG_HOST=config-server
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY:?set in .env}  
+      - JWT_PRIVATE_KEY=${JWT_PRIVATE_KEY:?set in .env}  
+      - CONFIG_USER=${CONFIG_USER:-admin}
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD:?copy .env.example to .env}
+    ports:
+      - "8080:8080" 
+    depends_on:
+      - discovery-server
+      - config-server
+      - auth-service
+    networks:
+      - app-network
+
+  frontend:
+    build: ../comfort-corner-fe
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    networks:
+      - app-network
